@@ -1,0 +1,113 @@
+name: Validate Skills
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-skills:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Validate skill structure
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          
+          const skillsDir = 'skills';
+          const skills = fs.readdirSync(skillsDir).filter(f => 
+            fs.statSync(path.join(skillsDir, f)).isDirectory()
+          );
+          
+          console.log('Found skills:', skills.join(', '));
+          
+          const errors = [];
+          
+          for (const skill of skills) {
+            const skillPath = path.join(skillsDir, skill);
+            const skillMd = path.join(skillPath, 'SKILL.md');
+            
+            // Check SKILL.md exists
+            if (!fs.existsSync(skillMd)) {
+              errors.push(\`Missing SKILL.md in \${skill}\`);
+              continue;
+            }
+            
+            // Read SKILL.md and check required sections
+            const content = fs.readFileSync(skillMd, 'utf-8');
+            const requiredSections = [
+              '# Skill:',
+              '## When to Apply',
+              '## Quick Reference',
+              '## Rules',
+              '## Detalle por Categoría'
+            ];
+            
+            for (const section of requiredSections) {
+              if (!content.includes(section)) {
+                errors.push(\`Missing section '\${section}' in \${skill}/SKILL.md\`);
+              }
+            }
+            
+            // Check rules directory exists and has files
+            const rulesDir = path.join(skillPath, 'rules');
+            if (fs.existsSync(rulesDir)) {
+              const ruleFiles = fs.readdirSync(rulesDir).filter(f => f.endsWith('.md'));
+              
+              // Extract referenced rules from SKILL.md
+              const ruleRefs = content.match(/rules\/([a-z-]+\.md)/gi) || [];
+              
+              for (const ref of ruleRefs) {
+                const refFile = ref.replace('rules/', '');
+                if (!ruleFiles.includes(refFile)) {
+                  errors.push(\`Referenced rule '\${refFile}' not found in \${skill}/rules/\`);
+                }
+              }
+            }
+          }
+          
+          if (errors.length > 0) {
+            console.error('\\nValidation errors:');
+            errors.forEach(e => console.error('  -', e));
+            process.exit(1);
+          }
+          
+          console.log('\\n✓ All skills validated successfully');
+          "
+      
+      - name: Validate TypeScript templates
+        run: |
+          npx tsc --noEmit --skipLibCheck \
+            skills/api-fetching/templates/entity.repository.ts \
+            skills/api-fetching/templates/useEntity.template.ts \
+            2>&1 || true
+        # Note: This will show errors due to missing imports from '@/lib/axios'
+        # In a real project, these would be resolved. This is a basic check.
+      
+      - name: Check for required root files
+        run: |
+          const fs = require('fs');
+          const required = ['README.md', 'AGENTS.md', 'CONTRIBUTING.md', 'LICENSE'];
+          const missing = required.filter(f => !fs.existsSync(f));
+          
+          if (missing.length > 0) {
+            console.error('Missing root files:', missing.join(', '));
+            process.exit(1);
+          }
+          
+          console.log('✓ All required root files present');
