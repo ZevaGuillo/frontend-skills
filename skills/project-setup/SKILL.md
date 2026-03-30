@@ -1,3 +1,9 @@
+---
+name: project-setup
+description: Scaffolds a new frontend project or feature following screaming architecture by feature. Use this skill when the user wants to create a new project, initialize a React application, add a new feature folder, or set up the base structure for a frontend app with TypeScript, Tailwind CSS, and shadcn/ui. Enforces SOLID, KISS, and YAGNI principles with a strict dependency graph between features.
+license: MIT
+---
+
 # Skill: project-setup
 
 > Screaming architecture by feature: folder structure, dependency graph, and public contracts.
