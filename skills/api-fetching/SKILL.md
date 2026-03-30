@@ -4,123 +4,78 @@ description: Implements data fetching following a three-layer pattern (api → r
 license: MIT
 ---
 
-# Skill: api-fetching
+# api-fetching — Execution Protocol
 
-> Three-layer pattern (api → repository → hook) with TanStack Query v5 for React applications.
+## Phase 1: Intent Detection
 
-## When to Apply
+### IF user says:
+- "fetch data" / "API call" / "get data"
+- "useQuery" / "useMutation"
+- "TanStack Query" / "React Query"
+- "optimistic update" / "cache invalidation"
+- "server component" / "SSR" / "hydration"
 
-Activate this skill when:
+→ THEN activate api-fetching skill
 
-- Writing any data fetching code
-- Creating API calls (REST or GraphQL)
-- Defining query hooks with TanStack Query
-- Implementing mutations with optimistic updates
-- Setting up SSR with Next.js App Router
-- Configuring error handling for API calls
+## Phase 2: Context Selection (LAZY LOAD)
+
+### Required (ALWAYS):
+- rules/three-layer.ts (always needed)
+
+### Conditional (LOAD ON DEMAND):
+| User Context | Load Rule |
+|------------|-----------|
+| Query keys | rules/query-keys.ts |
+| Optimistic updates | rules/optimistic.ts |
+| Cache invalidation | rules/invalidation.ts |
+| Error handling | rules/errors.ts |
+| Next.js SSR | rules/nextjs.ts |
+| Type sharing | rules/shared-types.ts |
+
+## Phase 3: Decision Tree
+
+```
+User Request
+    │
+    ├─► New API endpoint? → three-layer.ts → api → repository → hook
+    │
+    ├─► Query keys? → LOAD: query-keys.ts → QUERY_KEYS constants
+    │
+    ├─► Mutation with update? → LOAD: optimistic.ts → onMutate/onError
+    │
+    ├─► After mutation? → LOAD: invalidation.ts → invalidateQueries
+    │
+    ├─► Error handling? → LOAD: errors.ts → three-level handling
+    │
+    └─► Next.js SSR? → LOAD: nextjs.ts → HydrationBoundary
+```
+
+## Phase 4: Output Generation
+
+### DO:
+- Generate api → repository → hook structure
+- Use QUERY_KEYS constants
+- Implement optimistic updates for mutations
+- Invalidate after mutations
+
+### DON'T:
+- Use useQuery directly in components
+- Magic string query keys
+- Skip error handling
 
 ## Quick Reference
 
-- `[PATTERN]` Three-layer: api → repository → hook
-- `[MUST]` Query keys as typed constants in `QUERY_KEYS`
-- `[NEVER]` Use `useQuery` or `useMutation` directly in components
-- `[MUST]` Error handling in three levels: QueryClient, repository, hook
-- `[PREFERRED]` Optimistic updates for mutations
-- `[MUST]` Invalidate related queries after mutations
-- `[PATTERN]` Adapt to Next.js Server Components with HydrationBoundary
-- `[MUST]` Share types between layers via `types.ts`
+| Pattern | Location |
+|---------|----------|
+| Three-layer | rules/three-layer.ts |
+| Query keys | rules/query-keys.ts |
+| Optimistic | rules/optimistic.ts |
+| Invalidation | rules/invalidation.ts |
+| Next.js SSR | rules/nextjs.ts |
 
-## Rules
-
-| Priority | Rule | Impact | Reference File |
-|----------|------|--------|-----------------|
-| 1 | Three-layer architecture | High | `rules/three-layer-pattern.md` |
-| 2 | Query keys as typed constants | High | `rules/query-keys.md` |
-| 3 | Never use useQuery directly in components | High | `rules/no-use-query-directly.md` |
-| 4 | Error handling in three levels | High | `rules/error-handling.md` |
-| 5 | Optimistic updates for mutations | Medium | `rules/optimistic-updates.md` |
-| 6 | Query invalidation after mutations | High | `rules/query-invalidation.md` |
-| 7 | Next.js SSR adaptation | Medium | `rules/nextjs-ssr.md` |
-| 8 | Shared types between layers | High | `rules/shared-types.md` |
-
-## Detail by Category
-
-### Three-Layer Architecture
+## Commands
 
 ```
-api/           → HTTP calls only (axios/fetch)
-repository/    → Business logic, data transformation
-hook/          → useQuery/useMutation, UI state
+npx api:add [entity]      → Generate api + repository + hooks
+npx api:mutation [type]  → Add CRUD mutation
 ```
-
-**Each layer has one responsibility.** The api layer only handles HTTP. The repository layer handles business logic and transforms data. The hook layer integrates with TanStack Query.
-
-### Query Keys
-
-Query keys must be:
-
-- **Typed constants** — No magic strings scattered in components
-- **Escapable** — Include variables in the array
-- **Consistent** — Same format across all entities
-
-### Error Handling
-
-Errors must be handled at three levels:
-
-| Level | Location | Purpose |
-|-------|----------|---------|
-| Global | QueryClient | Retry, logging, defaults |
-| Domain | Repository | Specific errors (401→logout, 404→not found) |
-| Presentation | Hook/Component | isError state, user message |
-
-### Optimistic Updates
-
-For better UX, mutations should:
-
-- Cancel outgoing queries
-- Snapshot previous state
-- Update cache immediately
-- Rollback on error
-- Invalidate related queries on success
-
-### Next.js SSR
-
-For Server Components:
-
-- Use `queryClient.prefetchQuery` to load data
-- Wrap with `HydrationBoundary` passing `dehydratedState`
-- Use Server Actions for mutations
-
----
-
-## Templates
-
-- `templates/entity.repository.ts` — Complete repository with CRUD
-- `templates/useEntity.template.ts` — Hooks with query + mutation + infinite
-- `templates/query-keys.template.ts` — Query keys pattern
-- `templates/query-client.template.ts` — QueryClient configuration
-
-## Example Structure
-
-```
-src/
-├── api/
-│   └── products.api.ts       // axios.get('/products')
-├── repositories/
-│   ├── products.repository.ts // Business logic
-│   └── query-keys.ts         // QUERY_KEYS constants
-├── hooks/
-│   ├── use-products.ts       // useQuery hooks
-│   └── use-create-product.ts  // useMutation hooks
-└── components/
-    └── ProductList.tsx        // Uses hooks only
-```
-
-## Anti-Patterns
-
-- ❌ Using `useQuery` directly in components
-- ❌ Magic strings as query keys
-- ❌ No error handling
-- ❌ Direct API calls in components
-- ❌ No invalidation after mutations
-- ❌ Duplicating types between layers
